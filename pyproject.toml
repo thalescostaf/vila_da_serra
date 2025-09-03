@@ -1,0 +1,37 @@
+[project]
+name = "vila-da-serra"
+version = "0.1.0"
+description = "App de condomínio (ocorrências, fluxo de caixa, agenda e moradores) em Streamlit + Supabase"
+authors = [{ name = "Thales Fernandes", email = "contato.thales@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.9,<4.0"
+
+dependencies = [
+  "streamlit>=1.49.1; python_version >= '3.9' and python_version != '3.9.7'",
+  "supabase>=2.0",
+  "python-dotenv>=1.0",
+  "pandas>=2.2",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+lint.select = ["E", "F", "I"]
+lint.ignore = ["E501"]
+lint.fixable = ["ALL"]
+exclude = [".venv", ".streamlit"]
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.0"
+ruff = "^0.4"

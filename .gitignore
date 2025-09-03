@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+
+# Poetry venv local
+.venv/
+
+# Streamlit
+.streamlit/
+
+# Env
+.env
+.env.*
+
+# IDE / SO
+.vscode/
+.DS_Store
+Thumbs.db
