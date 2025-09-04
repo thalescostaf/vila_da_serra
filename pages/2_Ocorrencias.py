@@ -3,9 +3,12 @@ import streamlit as st
 import pandas as pd
 from datetime import date, datetime
 from src.supabase_client import table
-from src.ui import back_home
+from src.ui import back_home, require_auth
 
 st.set_page_config(page_title="Ocorrências", page_icon="📝", layout="wide")
+
+# Exige login e aplica token de sessão ao PostgREST
+require_auth()
 
 # Botão voltar para Home
 back_home()
@@ -14,15 +17,15 @@ st.title("📝 Ocorrências")
 
 STATUS_OPCOES = ["aberta", "em_andamento", "finalizada"]
 
+# ---------- utilitários ----------
 def fmt_data_ddmmaaaa(v):
     if not v:
         return ""
     try:
         if isinstance(v, (datetime, date)):
-            d = v
+            d = v if isinstance(v, date) else v.date()
         else:
-            # tenta parse de string "YYYY-MM-DD" ou timestamp ISO
-            s = str(v).split("T")[0]
+            s = str(v).split("T")[0]  # "YYYY-MM-DD"
             d = datetime.strptime(s, "%Y-%m-%d").date()
         return d.strftime("%d/%m/%Y")
     except Exception:
@@ -52,6 +55,18 @@ def status_badge(status: str):
         unsafe_allow_html=True,
     )
 
+def truncate(texto: str | None, max_chars: int = 240) -> str:
+    if not texto:
+        return "—"
+    t = str(texto).strip()
+    return t if len(t) <= max_chars else t[:max_chars].rstrip() + "..."
+
+def short_id(uid: str | None):
+    if not uid:
+        return "#--------"
+    return f"#{str(uid)[:8].upper()}"
+
+# ---------- dados ----------
 def carregar_moradores():
     res = table("moradores").select("id,nome,predio,apto").order("nome").execute()
     dados = res.data or []
@@ -78,6 +93,15 @@ if "edit_id" not in st.session_state:
 moradores_raw, moradores_opcoes = carregar_moradores()
 df = carregar_ocorrencias()
 
+# Mapa id->rótulo para solicitante
+mapa_morador = {m["id"]: f"{m.get('nome','')} — Prédio {m.get('predio','')}, Apto {m.get('apto','')}" for m in moradores_raw}
+
+def rotulo_morador(mid):
+    if not mid:
+        return "—"
+    return mapa_morador.get(mid, "—")
+
+# ---------- filtros ----------
 col_f1, col_f2 = st.columns([1, 2])
 with col_f1:
     filtro_status = st.selectbox("Filtrar status", ["Todos"] + STATUS_OPCOES, index=0)
@@ -95,43 +119,35 @@ if not df_view.empty:
             | df_view["descricao"].str.lower().str.contains(termo, na=False)
         ]
 
-mapa_morador = {}
-for m in moradores_raw:
-    mapa_morador[m["id"]] = f"{m.get('nome','')} — Prédio {m.get('predio','')}, Apto {m.get('apto','')}"
-
-def rotulo_morador(mid):
-    if not mid:
-        return "—"
-    return mapa_morador.get(mid, "—")
-
-def short_id(uid: str):
-    return f"#{str(uid)[:8].upper()}"
-
+# ---------- cards ----------
 def card_visualizacao(row):
     with st.container(border=True):
         c1, c2 = st.columns([0.8, 0.2])
         with c1:
             status_badge(row.get("status", "aberta"))
             st.markdown(f"### {row.get('titulo','(sem título)')}")
-            st.caption(
-                f"Solicitante: {rotulo_morador(row.get('morador_id'))}"
-            )
+            st.caption(f"Solicitante: {rotulo_morador(row.get('morador_id'))}")
         with c2:
-            st.write(short_id(row.get("id","")))
+            st.write(short_id(row.get("id")))
             st.caption(f"Abertura: {fmt_data_ddmmaaaa(row.get('created_at'))}")
 
+        # Resumo sempre visível
+        st.markdown(f"**Resumo:** {truncate(row.get('descricao'))}")
+
+        # Detalhes opcionais
+        with st.expander("Ver mais", expanded=False):
+            data_evt = fmt_data_ddmmaaaa(row.get("data_evento"))
+            st.markdown(f"**Data do evento:** {data_evt or '—'}")
+            desc_full = row.get("descricao") or "—"
+            st.markdown(f"**Descrição completa:** {desc_full}")
+
+        # Botão Editar por último
         if st.button("✏️ Editar", key=f"edit_{row['id']}", use_container_width=True):
             st.session_state.edit_id = row["id"]
 
-        with st.expander("Ver mais", expanded=False):
-            descricao = row.get("descricao", "") or "—"
-            data_evt = fmt_data_ddmmaaaa(row.get("data_evento"))
-            st.markdown(f"**Descrição:** {descricao}")
-            st.markdown(f"**Data do evento:** {data_evt or '—'}")
-
 def card_edicao(row):
     with st.container(border=True):
-        st.markdown(f"### Editando {short_id(row.get('id',''))}")
+        st.markdown(f"### Editando {short_id(row.get('id'))}")
 
         with st.form(f"form_edit_{row['id']}"):
             titulo = st.text_input("Título", value=row.get("titulo",""), max_chars=150)
@@ -211,14 +227,17 @@ else:
 
 st.divider()
 
+# ---------- criar nova ----------
 with st.expander("Nova ocorrência"):
     with st.form("form_criar"):
         titulo = st.text_input("Título", max_chars=150)
         descricao = st.text_area("Descrição", height=120)
         status = st.selectbox("Status", STATUS_OPCOES, index=0)
+
         rotulos, valores = zip(*moradores_opcoes)
         morador_escolha = st.selectbox("Morador (opcional)", rotulos, index=0)
         morador_id = valores[rotulos.index(morador_escolha)]
+
         data_evt = st.date_input("Data do evento (opcional)", value=None)
 
         salvar = st.form_submit_button("Salvar ocorrência", type="primary")

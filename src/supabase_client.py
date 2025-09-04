@@ -23,6 +23,25 @@ def get_client() -> Client:
 
 supabase = get_client()
 
+def ensure_postgrest_auth() -> bool:
+    """
+    Garante que o PostgREST esteja usando o token da sessão atual.
+    Chame após login e no início de cada página.
+    Retorna True se um token válido foi aplicado, False caso contrário.
+    """
+    try:
+        session = supabase.auth.get_session()
+        token = getattr(session, "access_token", None)
+        if token:
+            supabase.postgrest.auth(token)
+            return True
+        # Sem sessão: limpa o header para evitar 'resquícios' de sessões antigas
+        supabase.postgrest.auth(None)
+    except Exception:
+        # Em caso de qualquer erro, não quebra a app
+        pass
+    return False
+
 def table(name: str):
     # Builder já apontado para o schema vila_da_serra
     return supabase.postgrest.schema(SCHEMA).from_(name)

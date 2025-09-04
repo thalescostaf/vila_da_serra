@@ -1,14 +1,15 @@
-# pages/1_Metricas.py
 import streamlit as st
 from src.supabase_client import table
-from src.ui import back_home
+from src.ui import back_home, require_auth
 
 st.set_page_config(page_title="Métricas", page_icon="📈", layout="wide")
 
-# Botão voltar para Home
+# exige login e aplica token
+require_auth()
+
+# botão voltar
 back_home()
 
-# Título
 st.title("📈 Métricas")
 
 def count_table(table_name: str) -> int:

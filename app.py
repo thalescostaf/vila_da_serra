@@ -1,8 +1,11 @@
 import streamlit as st
-from src.supabase_client import supabase
+from src.supabase_client import supabase, ensure_postgrest_auth
 
 # Configuração da página
 st.set_page_config(page_title="Vila da Serra — Home", page_icon="🏠", layout="wide")
+
+# Garante que o PostgREST use (ou limpe) o token da sessão atual a cada render
+ensure_postgrest_auth()
 
 # Título
 st.title("🏠 Vila da Serra — Home")
@@ -29,8 +32,20 @@ if not user:
             st.error("Informe e-mail e senha.")
         else:
             try:
-                supabase.auth.sign_in_with_password({"email": email, "password": password})
+                # Autentica
+                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+
+                # Aplica explicitamente o access token ao PostgREST
+                try:
+                    if getattr(res, "session", None) and getattr(res.session, "access_token", None):
+                        supabase.postgrest.auth(res.session.access_token)
+                except Exception:
+                    pass
+
+                # Revalida usuário e garante token no PostgREST
                 user = get_current_user()
+                ensure_postgrest_auth()
+
                 if user:
                     st.success("Autenticado.")
                 else:
@@ -42,12 +57,20 @@ if not user:
     if not user:
         st.stop()
 
+# Após detectar usuário, reforça aplicação do token no PostgREST
+ensure_postgrest_auth()
+
 # Barra de usuário/logoff
 col_user, col_logout = st.columns([3, 1])
 col_user.success(f"Conectado: {user.email}")
 if col_logout.button("Sair"):
     try:
         supabase.auth.sign_out()
+        # Limpa o header do PostgREST para evitar resquícios de sessão
+        try:
+            supabase.postgrest.auth(None)
+        except Exception:
+            pass
     finally:
         st.experimental_set_query_params()
     st.stop()
