@@ -72,7 +72,7 @@ if col_logout.button("Sair"):
         except Exception:
             pass
     finally:
-        st.experimental_set_query_params()
+        st.query_params()
     st.stop()
 
 # ---------- Navegação ----------
