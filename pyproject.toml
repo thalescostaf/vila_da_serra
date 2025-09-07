@@ -4,10 +4,13 @@ version = "0.1.0"
 description = "App de condomínio (ocorrências, fluxo de caixa, agenda e moradores) em Streamlit + Supabase"
 authors = [{ name = "Thales Fernandes", email = "contato.thales@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.9,<4.0"
+
+# Abrange 3.9–3.13 e exclui 3.9.7 (Streamlit bloqueia 3.9.7)
+requires-python = ">=3.9,!=3.9.7,<4.0"
 
 dependencies = [
-  "streamlit>=1.49.1; python_version >= '3.9' and python_version != '3.9.7'",
+  "streamlit>=1.49.1",
+  "streamlit-calendar>=1.4.0",
   "supabase>=2.0",
   "python-dotenv>=1.0",
   "pandas>=2.2",
